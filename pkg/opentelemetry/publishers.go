@@ -7,6 +7,7 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -65,6 +66,13 @@ func (p *PublisherDecorator) Publish(topic string, messages ...*message.Message)
 	}
 	spanAttributes = append(spanAttributes, spanAttributes...)
 	span.SetAttributes(spanAttributes...)
+
+	if p.config.textMapPropagator != nil {
+		for i, msg := range messages {
+			p.config.textMapPropagator.Inject(ctx, propagation.MapCarrier(msg.Metadata))
+			messages[i] = msg
+		}
+	}
 
 	err := p.pub.Publish(topic, messages...)
 	if err != nil {

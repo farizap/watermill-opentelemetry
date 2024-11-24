@@ -3,6 +3,7 @@ package opentelemetry
 import (
 	"github.com/ThreeDotsLabs/watermill/message"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -31,8 +32,15 @@ func TraceHandler(h message.HandlerFunc, options ...Option) message.HandlerFunc 
 	}
 
 	return func(msg *message.Message) ([]*message.Message, error) {
-		spanName := message.HandlerNameFromCtx(msg.Context())
-		ctx, span := tracer.Start(msg.Context(), spanName, spanOptions...)
+		ctx := msg.Context()
+
+		if config.textMapPropagator != nil {
+			carrier := propagation.MapCarrier(msg.Metadata)
+			ctx = config.textMapPropagator.Extract(ctx, carrier)
+		}
+
+		spanName := message.HandlerNameFromCtx(ctx)
+		ctx, span := tracer.Start(ctx, spanName, spanOptions...)
 		span.SetAttributes(
 			semconv.MessagingDestinationKindTopic,
 			semconv.MessagingDestinationKey.String(message.SubscribeTopicFromCtx(ctx)),
