@@ -1,0 +1,55 @@
+services:
+  producer:
+    image: golang:1.23
+    restart: unless-stopped
+    depends_on:
+    - nats
+    networks:
+      - app_network
+    volumes:
+    - ../..:/app/watermill-opentelemetry
+    - $GOPATH/pkg/mod:/go/pkg/mod
+    working_dir: /app/watermill-opentelemetry/_examples/propagator/producer/
+    command: go run main.go
+
+  consumer:
+    image: golang:1.23
+    restart: unless-stopped
+    depends_on:
+    - nats
+    networks:
+      - app_network
+    volumes:
+    - ../..:/app/watermill-opentelemetry
+    - $GOPATH/pkg/mod:/go/pkg/mod
+    working_dir: /app/watermill-opentelemetry/_examples/propagator/consumer/
+    command: >
+      /bin/sh -c "go install github.com/ThreeDotsLabs/watermill/tools/mill@latest &&
+                  go run main.go"
+
+  jaeger:
+    image: jaegertracing/opentelemetry-all-in-one
+    networks:
+      - app_network
+    ports:
+      - 14268:14268
+      - 16686:16686
+      - 4317:4317
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+  
+  nats:
+    image: nats:2
+    ports:
+      - "0.0.0.0:4222:4222"
+    restart: unless-stopped
+    command: ["-js"]
+    networks:
+      - app_network
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+networks:
+  app_network:
